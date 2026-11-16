@@ -77,6 +77,7 @@
   let noticeActive = false;
   let draggedCardIndex = null;
   let draggedCardButton = null;
+  let botTurnGeneration = 0;
 
   const makeHand = () => {
     const deck = shuffle(makeDeck());
@@ -85,7 +86,7 @@
     return {
       cards, botCards, playerPlayed: false, botPlayed: false,
       turn: humanMano ? "player" : "bot", tricks: [], table: [],
-      stake: 1, trucoLevel: 0, pending: null, envidoResolved: false,
+      stake: 1, trucoLevel: 0, trucoRaiseBy: null, pending: null, envidoResolved: false,
       trickNumber: 1, dealAnimationPending: true,
     };
   };
@@ -351,6 +352,10 @@
     if (level < 2) hide(button("data-truco-real"), false);
     if (level < 3) hide(button("data-truco-falta"), false);
   };
+  const canCallEnvido = () => (
+    hand && !hand.envidoResolved && hand.trucoLevel === 0
+      && hand.cards.length === 3 && hand.botCards.length === 3
+  );
   const renderCalls = () => {
     clearCalls();
     if (matchOver || !hand || handFinished) return;
@@ -359,14 +364,20 @@
       if (pending.caller !== "player") {
         hide(button("data-truco-accept"), false);
         hide(button("data-truco-reject"), false);
-        if (pending.kind === "envido") showEnvidoCall(pending.level);
-        else if (pending.level < 3) showTrucoCall(pending.level);
+        if (pending.kind === "envido") {
+          if (canCallEnvido()) showEnvidoCall(pending.level);
+        } else if (pending.level < 3) {
+          showTrucoCall(pending.level);
+        }
       }
       return;
     }
     if (hand.turn !== "player") return;
-    if (!hand.envidoResolved && !hand.playerPlayed) showEnvidoCall(0);
-    if (hand.trucoLevel < 3) showTrucoCall(hand.trucoLevel);
+    if (canCallEnvido()) showEnvidoCall(0);
+    if (hand.trucoLevel === 0) showTrucoCall(0);
+    else if (hand.trucoLevel < 3 && hand.trucoRaiseBy === "player") {
+      showTrucoCall(hand.trucoLevel);
+    }
   };
 
   const startHand = () => {
@@ -393,9 +404,12 @@
 
   const botEnvidoThreshold = () => envidoValue(hand.botCards) >= 27;
   const callEnvido = (caller, level) => {
-    if (hand.envidoResolved) return;
+    const previous = hand.pending?.kind === "envido" && hand.pending.caller !== caller
+      ? hand.pending
+      : null;
+    if (!canCallEnvido() || (hand.pending && !previous)
+        || (!previous && caller !== hand.turn)) return;
     announce(`¡${level === 3 ? "Falta envido" : level === 2 ? "Real envido" : "Envido"}!`, "envido", caller === "player" ? "Vos cantaste" : "Canta el bot");
-    const previous = hand.pending?.kind === "envido" ? hand.pending : null;
     const callerScore = caller === "player" ? playerScore : botScore;
     const target = level === 3
       ? 30 - callerScore
@@ -424,9 +438,18 @@
     else rejectBid();
   };
   const callTruco = (caller, level) => {
+    const pending = hand.pending?.kind === "truco" ? hand.pending : null;
+    const isCounterBid = pending && pending.caller !== caller
+      && level === pending.level + 1;
+    const canOpenBid = !hand.pending && caller === hand.turn
+      && (hand.trucoLevel === 0
+        ? level === 1
+        : hand.trucoRaiseBy === caller && level === hand.trucoLevel + 1);
+    if (!isCounterBid && !canOpenBid) return;
     announce(`¡${level === 1 ? "Truco" : level === 2 ? "Retruco" : "Vale cuatro"}!`, "truco", caller === "player" ? "Vos cantaste" : "Canta el bot");
-    const previousStake = hand.stake;
+    const previousStake = pending ? pending.value : hand.stake;
     const value = level + 1;
+    hand.trucoRaiseBy = null;
     hand.pending = { kind: "truco", caller, level, value, refusalValue: previousStake };
     setStatus(caller === "player" ? `Cantaste ${level === 1 ? "Truco" : level === 2 ? "Retruco" : "Vale Cuatro"}.` : `El bot cantó ${level === 1 ? "Truco" : level === 2 ? "Retruco" : "Vale Cuatro"}.`);
     if (caller === "player") {
@@ -460,6 +483,9 @@
     } else {
       hand.stake = pending.value;
       hand.trucoLevel = pending.level;
+      hand.trucoRaiseBy = pending.level < 3
+        ? (pending.caller === "player" ? "bot" : "player")
+        : null;
       hand.turn = pending.caller;
       hand.pending = null;
       setStatus(`Quiero. La mano vale ${hand.stake}.`);
@@ -524,6 +550,7 @@
   };
   const playCard = (player, index) => {
     if (!hand || hand.turn !== player || hand.pending) return;
+    if (hand.trucoRaiseBy === player) hand.trucoRaiseBy = null;
     const cards = player === "player" ? hand.cards : hand.botCards;
     const source = player === "player" ? handElement.children[index] : botHandElement.children[index];
     const origin = source?.getBoundingClientRect();
@@ -535,7 +562,7 @@
       hand.turn = null;
       setStatus("Se compara la baza…");
       render();
-      window.setTimeout(compareTrick, 850);
+      window.setTimeout(compareTrick, 1500);
       return;
     }
     hand.turn = player === "player" ? "bot" : "player";
@@ -568,17 +595,33 @@
   });
 
   const queueBotTurn = () => {
-    window.setTimeout(botTurn, 450);
+    const queuedHand = hand;
+    const generation = ++botTurnGeneration;
+    const run = () => {
+      if (generation !== botTurnGeneration || hand !== queuedHand
+          || !hand || matchOver || hand.turn !== "bot" || hand.pending) return;
+      if (noticeActive || noticeQueue.length) {
+        window.setTimeout(run, 100);
+        return;
+      }
+      botTurn();
+    };
+    window.setTimeout(run, 900);
   };
   const botTurn = () => {
     if (!hand || matchOver || hand.turn !== "bot" || hand.pending) return;
-    if (!hand.envidoResolved && !hand.botPlayed && botEnvidoThreshold() && Math.random() > 0.55) {
+    if (canCallEnvido() && botEnvidoThreshold() && Math.random() > 0.55) {
       callEnvido("bot", 1);
       return;
     }
     const bestCard = Math.max(...hand.botCards.map(strength));
     if (hand.trucoLevel === 0 && bestCard >= 12 && Math.random() > 0.65) {
       callTruco("bot", 1);
+      return;
+    }
+    if (hand.trucoRaiseBy === "bot" && hand.trucoLevel < 3
+        && bestCard >= 12 && Math.random() > 0.65) {
+      callTruco("bot", hand.trucoLevel + 1);
       return;
     }
     let index = Math.floor(Math.random() * hand.botCards.length);

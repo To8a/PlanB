@@ -1,0 +1,15 @@
+# Nunca subir secretos ni entornos locales al deploy.
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+node_modules/
+backend/staticfiles/
+docs/
+.github/
+supabase/tests/
+*.log
+*.sqlite3
