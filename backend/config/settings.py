@@ -13,6 +13,9 @@ ALLOWED_HOSTS = [host.strip() for host in os.getenv(
 ).split(",") if host.strip()]
 DJANGO_PUBLIC_URL = os.getenv("DJANGO_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
 CSRF_TRUSTED_ORIGINS = [DJANGO_PUBLIC_URL]
+# Detrás de un proxy HTTPS (Vercel, Render, Fly): sin esto Django no ve la
+# petición como segura y SECURE_SSL_REDIRECT entra en bucle.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
 SUPABASE_PUBLISHABLE_KEY = os.environ["SUPABASE_PUBLISHABLE_KEY"]
 SUPABASE_SECRET_KEY = os.environ["SUPABASE_SECRET_KEY"]
@@ -32,3 +35,11 @@ DATABASES = {"default": {
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_SSL_REDIRECT = not DEBUG
+
+# Los estáticos los sirve el propio proceso WSGI cuando no hay nginx delante.
+# `collectstatic` debe ejecutarse antes de arrancar (ver docs/deploy/vercel.md).
+MIDDLEWARE = ["whitenoise.middleware.WhiteNoiseMiddleware", *MIDDLEWARE]
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
