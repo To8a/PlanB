@@ -1,4 +1,4 @@
-"""Clientes efímeros con estado y transportes privados por operación."""
+"""Clientes efímeros privados; conexiones de Data API delimitadas al request."""
 
 from contextlib import contextmanager
 from functools import lru_cache
@@ -13,6 +13,8 @@ from django.conf import settings
 from django.views.decorators.debug import sensitive_variables
 from supabase import Client
 from supabase.lib.client_options import SyncClientOptions
+
+from .data_api_transport import data_api_operation, http_client_class
 
 HTTP_TIMEOUT = 10.0
 _TLS_CONTEXT_LOCK = Lock()
@@ -48,8 +50,8 @@ def _tls_context():
 
 
 def http_client():
-    # El contexto propietario siempre cierra este transporte. No hay pool global.
-    return httpx.Client(verify=_tls_context(), timeout=HTTP_TIMEOUT, follow_redirects=False)
+    # No hay pool global ni estado de cliente compartido entre operaciones.
+    return http_client_class()(verify=_tls_context(), timeout=HTTP_TIMEOUT, follow_redirects=False)
 
 
 @sensitive_variables()
@@ -67,7 +69,7 @@ def _remove_api_key_bearer(request):
 @contextmanager
 @sensitive_variables()
 def _client(api_key, access_token=None):
-    with http_client() as transport:
+    with data_api_operation(api_key, access_token), http_client() as transport:
         transport.event_hooks["request"].append(_remove_api_key_bearer)
         options = SyncClientOptions(
             persist_session=False,
