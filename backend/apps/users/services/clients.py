@@ -1,7 +1,13 @@
 """Clientes efímeros con estado y transportes privados por operación."""
 
 from contextlib import contextmanager
+from functools import lru_cache
+import os
+from pathlib import Path
+import ssl
+from threading import Lock
 
+import certifi
 import httpx
 from django.conf import settings
 from django.views.decorators.debug import sensitive_variables
@@ -9,11 +15,41 @@ from supabase import Client
 from supabase.lib.client_options import SyncClientOptions
 
 HTTP_TIMEOUT = 10.0
+_TLS_CONTEXT_LOCK = Lock()
+
+
+@lru_cache(maxsize=1)
+def _cached_tls_context(cafile, fingerprint):
+    # Sólo confianza TLS: nunca contiene JWT, cookies ni estado de Supabase.
+    # La huella invalida la entrada si se reemplaza o actualiza el archivo CA.
+    return ssl.create_default_context(cafile=cafile)
+
+
+def _tls_context():
+    # Misma precedencia de confianza que HTTPX 0.28 con trust_env=True.
+    cafile = os.environ.get("SSL_CERT_FILE")
+    if not cafile:
+        if os.environ.get("SSL_CERT_DIR"):
+            # OpenSSL carga un capath de forma diferida. Sus archivos internos
+            # pueden cambiar sin cambiar el directorio: conservar la carga normal.
+            return httpx.create_ssl_context()
+        cafile = certifi.where()
+    try:
+        path = Path(cafile).resolve()
+        info = path.stat()
+    except OSError:
+        # Mantener los errores de configuración de confianza del transporte.
+        return httpx.create_ssl_context()
+    fingerprint = (info.st_dev, info.st_ino, info.st_size,
+                   info.st_mtime_ns, info.st_ctime_ns)
+    # Evitar varias cargas simultáneas durante la primera solicitud del proceso.
+    with _TLS_CONTEXT_LOCK:
+        return _cached_tls_context(str(path), fingerprint)
 
 
 def http_client():
     # El contexto propietario siempre cierra este transporte. No hay pool global.
-    return httpx.Client(timeout=HTTP_TIMEOUT, follow_redirects=False)
+    return httpx.Client(verify=_tls_context(), timeout=HTTP_TIMEOUT, follow_redirects=False)
 
 
 @sensitive_variables()
