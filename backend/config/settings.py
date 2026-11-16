@@ -38,8 +38,15 @@ SECURE_SSL_REDIRECT = not DEBUG
 
 # Los estáticos los sirve el propio proceso WSGI cuando no hay nginx delante.
 # `collectstatic` debe ejecutarse antes de arrancar (ver docs/deploy/vercel.md).
-MIDDLEWARE = ["whitenoise.middleware.WhiteNoiseMiddleware", *MIDDLEWARE]
-STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
-}
+# Si el entorno local todavía no corrió `pip install -r requirements.txt`, la app
+# sigue arrancando y Django sirve los estáticos como siempre.
+try:
+    import whitenoise  # noqa: F401
+except ModuleNotFoundError:
+    pass
+else:
+    MIDDLEWARE = ["whitenoise.middleware.WhiteNoiseMiddleware", *MIDDLEWARE]
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+    }
