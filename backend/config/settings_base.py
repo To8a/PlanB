@@ -11,6 +11,7 @@ INSTALLED_APPS = [
     "apps.notifications.apps.NotificationsConfig",
 ]
 MIDDLEWARE = [
+    "apps.users.middleware.DataAPIConnectionsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

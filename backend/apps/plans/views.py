@@ -278,7 +278,7 @@ def detail(request, plan_id):
     )
     election_method = plan.get("election_method")
     voted_proposal_id = None
-    if election_method == "votes":
+    if election_method == "votes" and not plan.get("selected_proposal_id"):
         try:
             voted_proposal_id = election_service.voted_proposal(
                 token, plan_id=plan_id,
