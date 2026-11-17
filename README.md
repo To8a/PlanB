@@ -185,11 +185,12 @@ El cierre de sesión se realiza con su botón POST.
 
 ## Despliegue en Vercel
 
-`api/index.py` y `vercel.json` conectan Django con las funciones serverless;
-WhiteNoise sirve los estáticos ya recolectados. Las variables obligatorias y los
-límites de la plataforma están en [despliegue en Vercel](docs/deploy/vercel.md).
-Importar el repositorio desde GitHub: arrastrar la carpeta no instala Python ni
-ejecuta `collectstatic`, y además sube `.env` y `.venv` tal cual.
+Vercel detecta `backend/manage.py`, resuelve `config.wsgi.application` y corre
+`collectstatic` durante el build; `/static/` se sirve desde su CDN. Las
+variables obligatorias y los límites de la plataforma están en
+[despliegue en Vercel](docs/deploy/vercel.md). Importar el repositorio desde
+GitHub: arrastrar la carpeta no instala Python ni ejecuta `collectstatic`, y
+además sube `.env` y `.venv` tal cual.
 
 ## Ramas y Pull Requests
 

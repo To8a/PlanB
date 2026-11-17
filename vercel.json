@@ -1,17 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "buildCommand": "npm ci && DJANGO_SETTINGS_MODULE=config.settings_build python backend/manage.py collectstatic --noinput",
+  "buildCommand": "npm ci",
   "functions": {
-    "api/index.py": {
-      "includeFiles": "backend/staticfiles/**",
+    "backend/config/wsgi.py": {
       "maxDuration": 60
     }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index"
-    }
-  ]
+  }
 }

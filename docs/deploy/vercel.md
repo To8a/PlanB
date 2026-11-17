@@ -19,17 +19,17 @@ Además, arrastrar la carpeta del proyecto a Vercel sube `.env`, `.venv` y
 del rol de base de datos. El `.vercelignore` de este repo evita que vuelva a
 pasar.
 
-## Build sin secretos
+## Cómo compila Vercel
 
-`collectstatic` corre con `DJANGO_SETTINGS_MODULE=config.settings_build`, un
-módulo que sólo importa `settings_base` y la configuración de estáticos. Así el
-build no depende de `DJANGO_SECRET_KEY`, Supabase ni la base.
+Vercel detecta `backend/manage.py`, importa `config.settings` para resolver
+`WSGI_APPLICATION` (`config.wsgi.application`) y publica la app como una única
+Función. También corre `collectstatic` por su cuenta y sirve `/static/` desde el
+CDN. Por eso no hace falta entrypoint propio ni `rewrites`: el `vercel.json`
+sólo fija `maxDuration` sobre `backend/config/wsgi.py`.
 
-`vercel.json` fija `"framework": null` (preset "Other"). Sin ese ajuste, Vercel
-detecta `backend/manage.py`, importa `config.settings` durante el build y falla
-con `DJANGO_SETTINGS_FAILED` si todavía no cargaste las variables. Con "Other",
-`api/index.py` se publica como función y expone `app`/`application` como WSGI.
-Las variables se necesitan recién en runtime, donde sí hay que tenerlas todas.
+Consecuencia importante: **el build importa `settings.py`**, así que las
+variables sensibles tienen que existir antes de compilar. Si falta una, el build
+corta con `DJANGO_SETTINGS_FAILED` y el `KeyError` de la variable.
 
 ## Pasos
 
@@ -54,9 +54,8 @@ Las variables se necesitan recién en runtime, donde sí hay que tenerlas todas.
 | `PYTHON_VERSION` | `3.12` |
 | `GEOAPIFY_API_KEY`, `GEMINI_API_KEY` | Opcionales; sin ellas sólo se desactivan las recomendaciones. |
 
-3. Deploy. `vercel.json` ejecuta `npm ci` y `collectstatic`; WhiteNoise sirve
-   CSS, JS y Leaflet desde la propia función. Los estáticos se incluyen en el
-   bundle con `includeFiles`.
+3. Deploy. Vercel instala `requirements.txt`, corre `npm ci` (para que
+   `collectstatic` encuentre Leaflet en `node_modules`) y compila los estáticos.
 4. Aplicá las migraciones de Django desde tu máquina con el rol migrador
    (`python manage.py migrate`), apuntando al PostgreSQL de producción. La tabla
    de sesiones vive en `django_internal` y debe existir antes del primer login.
