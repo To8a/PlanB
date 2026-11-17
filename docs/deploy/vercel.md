@@ -19,6 +19,14 @@ Además, arrastrar la carpeta del proyecto a Vercel sube `.env`, `.venv` y
 del rol de base de datos. El `.vercelignore` de este repo evita que vuelva a
 pasar.
 
+## Build sin secretos
+
+`collectstatic` corre con `DJANGO_SETTINGS_MODULE=config.settings_build`, un
+módulo que sólo importa `settings_base` y la configuración de estáticos. Así el
+build no depende de `DJANGO_SECRET_KEY`, Supabase ni la base: si falta una
+variable, el build igual termina y el problema aparece en runtime, donde se ve
+el traceback de la función.
+
 ## Pasos
 
 1. En Vercel: **Add New → Project → Import Git Repository** y elegí
