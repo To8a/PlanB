@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm ci",
   "functions": {
-    "backend/config/wsgi.py": {
+    "backend/config/asgi.py": {
       "maxDuration": 60
     }
   }

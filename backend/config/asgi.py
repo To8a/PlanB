@@ -8,8 +8,17 @@ https://docs.djangoproject.com/en/6.1/howto/deployment/asgi/
 """
 
 import os
+import sys
+from pathlib import Path
 
-from django.core.asgi import get_asgi_application
+# Algunos hosts (por ejemplo Vercel) importan este archivo por ruta absoluta
+# sin agregar la carpeta del proyecto a sys.path, así que "config" no se
+# resuelve. Lo dejamos explícito para que funcione en cualquier entorno.
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+from django.core.asgi import get_asgi_application  # noqa: E402
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 

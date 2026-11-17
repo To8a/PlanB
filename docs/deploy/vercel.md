@@ -21,11 +21,17 @@ pasar.
 
 ## Cómo compila Vercel
 
-Vercel detecta `backend/manage.py`, importa `config.settings` para resolver
-`WSGI_APPLICATION` (`config.wsgi.application`) y publica la app como una única
-Función. También corre `collectstatic` por su cuenta y sirve `/static/` desde el
-CDN. Por eso no hace falta entrypoint propio ni `rewrites`: el `vercel.json`
-sólo fija `maxDuration` sobre `backend/config/wsgi.py`.
+Vercel detecta `backend/manage.py` e importa `config.settings` para leer
+`WSGI_APPLICATION` (`config.wsgi.application`), pero el runtime publica la app
+como una única Función usando el entrypoint ASGI que encuentra al lado
+(`backend/config/asgi.py`). También corre `collectstatic` por su cuenta y sirve
+`/static/` desde el CDN, así que no hace falta entrypoint propio ni `rewrites`.
+
+Como el runtime importa `asgi.py` por ruta absoluta y sin agregar `backend/` al
+`sys.path`, `asgi.py` y `wsgi.py` insertan su carpeta padre en `sys.path` antes
+de `get_*_application()`. Sin ese ajuste el runtime falla con
+`ModuleNotFoundError: No module named 'config'` aunque el build pase. El
+`vercel.json` sólo fija `maxDuration` sobre `backend/config/asgi.py`.
 
 Consecuencia importante: **el build importa `settings.py`**, así que las
 variables sensibles tienen que existir antes de compilar. Si falta una, el build
@@ -68,8 +74,10 @@ corta con `DJANGO_SETTINGS_FAILED` y el `KeyError` de la variable.
 - `maxDuration` queda en 60 s. Las llamadas a Gemini/Geoapify pueden superarlo
   y devolver 504.
 - Las conexiones a PostgreSQL se abren por request; conviene usar el pooler de
-  Supabase (`DB_PORT` del pooler, normalmente `6543`) y mantener `DB_SSLMODE`
-  en `require`.
+  Supabase en **modo sesión** (`DB_PORT=5432`, usuario
+  `planb_django_runtime.<ref>`) porque las opciones de conexión fijan
+  `search_path=django_internal`, y el modo transacción (`6543`) no lo conserva.
+  Mantené `DB_SSLMODE` en `require`.
 - Si preferís un proceso tradicional (sin cold starts ni límites de duración),
   Render o Fly.io corren este mismo repo con `gunicorn config.wsgi` y las mismas
   variables, sin cambios de código.
