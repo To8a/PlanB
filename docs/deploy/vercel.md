@@ -23,9 +23,13 @@ pasar.
 
 `collectstatic` corre con `DJANGO_SETTINGS_MODULE=config.settings_build`, un
 módulo que sólo importa `settings_base` y la configuración de estáticos. Así el
-build no depende de `DJANGO_SECRET_KEY`, Supabase ni la base: si falta una
-variable, el build igual termina y el problema aparece en runtime, donde se ve
-el traceback de la función.
+build no depende de `DJANGO_SECRET_KEY`, Supabase ni la base.
+
+`vercel.json` fija `"framework": null` (preset "Other"). Sin ese ajuste, Vercel
+detecta `backend/manage.py`, importa `config.settings` durante el build y falla
+con `DJANGO_SETTINGS_FAILED` si todavía no cargaste las variables. Con "Other",
+`api/index.py` se publica como función y expone `app`/`application` como WSGI.
+Las variables se necesitan recién en runtime, donde sí hay que tenerlas todas.
 
 ## Pasos
 
