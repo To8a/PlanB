@@ -34,6 +34,11 @@
         <div><dt>Usuario actual</dt><dd>{{ profile.username }}</dd></div>
         <div><dt>Cuenta creada</dt><dd>{{ profile.created_at|date:"d/m/Y H:i" }}</dd></div>
       </dl>
+      <div class="pb-profile-form">
+        <h3>Aplicación móvil</h3>
+        <p>Descargá Plan B para Android e instalá el archivo APK en tu dispositivo.</p>
+        <a class="button button--primary" href="{% static 'users/downloads/planb-early_release.apk' %}" download="planb-early_release.apk">Descargar APK <span aria-hidden="true">↓</span></a>
+      </div>
       <div class="pb-profile-form"><h3>Editar datos</h3><p>Podés actualizar tu nombre de usuario cuando lo necesites.</p>
         <form method="post" action="{% url 'users:profile' %}" class="auth-form">
           {% csrf_token %}
