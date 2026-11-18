@@ -1,6 +1,7 @@
 # Experimento local de pooling PostgreSQL (etapa 4B)
 
-Estado: opt-in, desactivado por defecto. No es una configuración de producción.
+Estado: automático sólo para el `runserver` local habitual. Desactivado en otros
+comandos, tests, CI, Vercel y producción. No es una configuración de producción.
 La rama parte de `main` en `7762bfe`, con las optimizaciones HTTP anteriores integradas.
 
 ## Alcance y compatibilidad
@@ -9,13 +10,36 @@ Django 6.1.1 y psycopg 3.3.6 soportan el pool nativo; se incorpora únicamente
 `psycopg-pool==3.3.3`. Se verificaron los argumentos contra la firma instalada de
 `ConnectionPool`. No se crea un pool alternativo ni se comparten clientes Auth.
 
-Sin `PLANB_PG_POOL_EXPERIMENT=true`, la configuración anterior permanece igual:
-`CONN_MAX_AGE=0`, sin `OPTIONS.pool` y sin health checks añadidos. No se importa
-`psycopg_pool` desde la configuración ni se abre una conexión al importar settings.
+No se usa `DEBUG` como única señal. La activación automática requiere todas estas
+condiciones, evaluadas sin abrir conexiones:
 
-La activación exige además `DJANGO_DEBUG=True` y ausencia de `VERCEL`.
-Es una protección contra activación accidental; no sustituye el control del entorno.
-No habilitar DEBUG en un servidor expuesto para probar este experimento.
+- Ejecutar el `manage.py` de este proyecto con `runserver`.
+- Tener `DEBUG=True` en la configuración existente; el código no modifica DEBUG.
+- Usar el binding predeterminado de Django o uno de loopback (`127.0.0.1`,
+  `localhost`, `::1`), y una `DJANGO_PUBLIC_URL` también de loopback.
+- No tener `VERCEL` ni marcadores de CI/tests en el entorno. Se excluyen por
+  presencia incluso si contienen `false` o una cadena vacía.
+- No tener un override explícito que desactive `PLANB_PG_POOL_EXPERIMENT`.
+
+Se reconocen `CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `TF_BUILD`, `JENKINS_URL`,
+`TEAMCITY_VERSION`, `CIRCLECI`, `TRAVIS`, `BUILDKITE`, `DRONE`,
+`BITBUCKET_BUILD_NUMBER` y `PYTEST_CURRENT_TEST`. Un CI personalizado debe conservar
+un marcador CI; no se intenta deducir la ubicación física de una máquina.
+
+Se admiten los flags usuales `--noreload`, `--nothreading`, `--ipv6`/`-6`,
+`--nostatic`, `--insecure`, `--no-color`, `--force-color`, `--traceback` y
+`--skip-checks`. Opciones desconocidas y bindings públicos/de LAN quedan excluidos
+en vez de adivinar su significado. El autoreloader mantiene las mismas reglas.
+
+Los arranques Gunicorn/Uvicorn/WSGI/ASGI y comandos como `check`, `migrate`,
+`collectstatic`, `shell` y `test` no activan automáticamente el pool. Los tests
+habituales siguen usando `settings_test` con SQLite y red bloqueada. Sólo el
+laboratorio aislado habilita su propia variante pool explícitamente.
+
+`PLANB_PG_POOL_EXPERIMENT=true` no permite saltar estas restricciones: fuera del
+contexto local permitido se rechaza con `ImproperlyConfigured`. Sin el flag no
+se introduce ese error en otros entornos: simplemente permanecen sin pool.
+No se importa `psycopg_pool` desde settings ni se abre una conexión al importarlos.
 
 Se conservan las credenciales, host, puerto, `sslmode` y el argumento
 `options=-c search_path=django_internal` existentes. No se cambia el modo de Supavisor.
@@ -57,27 +81,49 @@ la solicitud en curso ni se reintenta refresh/logout ante un resultado incierto.
 Los errores propios del pool conservan el manejo de errores existente; el
 experimento no agrega una respuesta 503 especial ni cambia autenticación.
 
-## Activar y desactivar sin editar .env
+## Arranque habitual del equipo, sin Docker ni variables adicionales
 
-En una terminal PowerShell local, desde la raíz:
+Con la `.venv` activa, desde `backend/`, instalar las dependencias actualizadas
+del proyecto (incluyen `psycopg-pool==3.3.3`) y levantar normalmente:
 
 ```powershell
-$env:DJANGO_DEBUG = 'True'
-$env:PLANB_PG_POOL_EXPERIMENT = 'true'
-.\.venv\Scripts\python.exe -B backend/manage.py runserver 127.0.0.1:8000
+python -m pip install -r ../requirements.txt
+python manage.py runserver
 ```
 
-Detener el servidor y, en esa misma terminal, desactivar y reiniciar:
+La instalación se necesita al actualizar las dependencias, no en cada arranque.
+Con la configuración de desarrollo existente (`DEBUG=True` y URL local), el pool
+se activa sin definir `DJANGO_DEBUG` ni `PLANB_PG_POOL_EXPERIMENT` en la terminal.
+No se cambia la política de DEBUG: si la configuración existente lo deshabilita,
+el pool permanece deshabilitado. No habilitar DEBUG en producción para obtener pooling.
+
+**Docker no es necesario para usar Plan B ni el pooling habitual.** La aplicación
+sigue conectándose al PostgreSQL y Auth de **Supabase** mediante la configuración
+existente. No se cambia host, puerto, credenciales, TLS ni modo de Supavisor.
+Docker sólo se utilizó para las pruebas aisladas y el benchmark documentados abajo.
+
+## Desactivar temporalmente sin editar .env
+
+Detener el servidor, establecer el override en esa terminal PowerShell y reiniciar:
+
+```powershell
+$env:PLANB_PG_POOL_EXPERIMENT = 'false'
+python manage.py runserver
+```
+
+Esto conserva `CONN_MAX_AGE=0`, sin `OPTIONS.pool` ni health checks añadidos.
+Para volver al comportamiento automático, detener el servidor, quitar el override
+de la terminal y volver a arrancar:
 
 ```powershell
 Remove-Item Env:PLANB_PG_POOL_EXPERIMENT -ErrorAction SilentlyContinue
-.\.venv\Scripts\python.exe -B backend/manage.py runserver 127.0.0.1:8000
+python manage.py runserver
 ```
 
-Las variables pertenecen al proceso/terminal; no se escribe `.env`. Restaurar
-también el valor anterior de `DJANGO_DEBUG` al terminar si se cambió para probar.
-El reinicio libera el pool del proceso anterior. Quitar la variable sin reiniciar
-no cambia los settings de un servidor ya iniciado.
+Las variables pertenecen al proceso/terminal; no se edita `.env`. Un override
+`false` ya configurado en el entorno o `.env` también se respeta. El reinicio libera
+el pool del proceso anterior. Cambiar una variable sin reiniciar no modifica los
+settings del servidor ya iniciado.
 
 `runserver` crea hilos nuevos y cierra los wrappers al terminar su manejo. El
 pool nativo puede conservar las conexiones físicas entre esos hilos. Aumentar
@@ -86,7 +132,7 @@ En WSGI estable hay un pool por proceso; con ASGI las operaciones ORM síncronas
 siguen ejecutándose en hilos y deben conservarse `CONN_MAX_AGE=0` y el ciclo de cierre.
 Este cambio no convierte las vistas en async ni instala servidores adicionales.
 
-Vercel queda excluido de la activación. Sus instancias pueden reutilizarse y
+Vercel y producción permanecen sin pooling. Sus instancias pueden reutilizarse y
 Fluid Compute puede ejecutar solicitudes concurrentes; no debe asumirse un
 proceso nuevo por petición ni una instancia estable entre navegaciones. No se
 modificaron su configuración ni su documentación de despliegue en esta etapa.
@@ -195,11 +241,24 @@ autenticadas reales ni estimaciones presentadas como resultados.
 
 ## Criterio para conservar el experimento
 
-Conservar desactivado por defecto y habilitar sólo para experimentos locales
-explícitos. Antes de recomendar adopción en un despliegue se exige:
+Conservar la activación automática acotada al desarrollo local. Antes de
+recomendar adopción en un despliegue se exige:
 menos aperturas físicas posteriores, menor mediana/p95, cero regresiones de
 aislamiento/concurrencia y capacidad suficiente bajo saturación. No trasladar
 los límites de laboratorio a producción sin medir procesos e instancias.
+
+## Validación de la activación automática
+
+- 70 tests específicos de pooling, activación por entorno, sesiones, autenticación,
+  seguridad y aislamiento HTTP: OK.
+- Suite completa: 925 tests, OK.
+- `manage.py check`, check con `settings_test`, `pip check` y `git diff --check`: OK.
+- Configuración local efectiva inspeccionada con los argumentos exactos
+  `manage.py runserver`, sin arrancar el servidor ni abrir conexiones: pool activo,
+  `CONN_MAX_AGE=0`, health checks activos, TLS `require` y
+  `search_path=django_internal`. DEBUG conserva su valor existente.
+- Los parámetros del pool y la dependencia fijada no cambiaron. No se repitieron
+  mediciones autenticadas ni operaciones de Supabase para este cambio de activación.
 
 ## Validación inicial, antes de disponer de Docker
 
@@ -301,8 +360,10 @@ Auth es ficticio y no hay TLS ni red remota. La variación de SQL/commit no prue
 un cambio del motor de sesiones: sus cuatro operaciones SQL y tres commits por
 respuesta se conservaron. Las duraciones superpuestas no deben sumarse.
 
-Recomendación: conservar el experimento desactivado por defecto; se demostró
-reutilización física y beneficio para solicitudes posteriores de este fixture.
+Recomendación de aquella medición: conservar el experimento desactivado por
+defecto; se demostró reutilización física y beneficio para solicitudes posteriores
+de este fixture. La etapa posterior descrita al comienzo habilita automáticamente
+sólo el `runserver` local, manteniendo el resto de los entornos desactivados.
 No recomendar aún despliegue: faltan servidores reales, latencia/TLS remotos,
 presupuesto de conexiones por instancias y pruebas de carga representativa.
 

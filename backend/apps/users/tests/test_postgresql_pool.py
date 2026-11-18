@@ -15,6 +15,28 @@ from config.postgresql_pool import configure_pool_experiment
 from .postgresql_pool_lab import empty_local_schema, local_database, trace_connections
 
 
+MANAGE_PY = Path(__file__).resolve().parents[3] / "manage.py"
+
+
+def runtime_settings(extra=None, arguments=None):
+    # Configuración real con dotenv y argv controlados: ni .env ni conexiones.
+    environment = {
+        "DJANGO_SECRET_KEY": "offline-fixture", "DJANGO_DEBUG": "True",
+        "SUPABASE_URL": "https://fixture.invalid",
+        "SUPABASE_PUBLISHABLE_KEY": "fixture", "SUPABASE_SECRET_KEY": "fixture",
+        "DB_NAME": "fixture", "DB_USER": "fixture", "DB_PASSWORD": "fixture",
+        "DB_HOST": "fixture.pooler.supabase.com",
+    }
+    spec = importlib.util.spec_from_file_location("config._pool_settings_fixture", MANAGE_PY.parent / "config" / "settings.py")
+    module = importlib.util.module_from_spec(spec)
+    with patch.dict(os.environ, {**environment, **(extra or {})}, clear=True), \
+            patch("sys.argv", arguments if arguments is not None else [str(MANAGE_PY), "runserver"]), \
+            patch("dotenv.load_dotenv") as dotenv:
+        spec.loader.exec_module(module)
+        dotenv.assert_called_once()
+    return module
+
+
 def database_config():
     return {
         "ENGINE": "django.db.backends.postgresql",
@@ -59,31 +81,86 @@ class PoolConfigurationTests(SimpleTestCase):
                 with self.assertRaises(ImproperlyConfigured):
                     configure_pool_experiment(config, enabled=True, local=local)
 
-    def test_runtime_flag_defaults_off_and_rejects_vercel_and_production(self):
-        # Ejecutar settings con dotenv simulado: nunca leer el .env del proyecto.
-        environment = {
-            "DJANGO_SECRET_KEY": "offline-fixture", "DJANGO_DEBUG": "True",
-            "SUPABASE_URL": "https://fixture.invalid",
-            "SUPABASE_PUBLISHABLE_KEY": "fixture", "SUPABASE_SECRET_KEY": "fixture",
-            "DB_NAME": "fixture", "DB_USER": "fixture", "DB_PASSWORD": "fixture",
-            "DB_HOST": "127.0.0.1",
-        }
+    def test_normal_local_runserver_enables_pool_without_extra_variables(self):
+        configured = runtime_settings()
+        database = configured.DATABASES["default"]
+        self.assertIn("pool", database["OPTIONS"])
+        self.assertEqual(database["HOST"], "fixture.pooler.supabase.com")
+        self.assertEqual(database["PORT"], "5432")
+        self.assertEqual(database["CONN_MAX_AGE"], 0)
+        self.assertTrue(database["CONN_HEALTH_CHECKS"])
+        self.assertTrue(configured.DEBUG)
 
-        def load(extra):
-            path = Path(__file__).resolve().parents[3] / "config" / "settings.py"
-            spec = importlib.util.spec_from_file_location("config._pool_settings_fixture", path)
-            module = importlib.util.module_from_spec(spec)
-            with patch.dict(os.environ, {**environment, **extra}, clear=True), \
-                    patch("dotenv.load_dotenv") as dotenv:
-                spec.loader.exec_module(module)
-                dotenv.assert_called_once()
-            return module.DATABASES["default"]
+    def test_explicit_false_overrides_automatic_activation(self):
+        for value in ("false", "False", "0", "no", "off", ""):
+            with self.subTest(value=value):
+                configured = runtime_settings({"PLANB_PG_POOL_EXPERIMENT": value})
+                database = configured.DATABASES["default"]
+                self.assertNotIn("pool", database["OPTIONS"])
+                self.assertNotIn("CONN_HEALTH_CHECKS", database)
+                self.assertTrue(configured.DEBUG)
 
-        self.assertNotIn("pool", load({})["OPTIONS"])
-        self.assertIn("pool", load({"PLANB_PG_POOL_EXPERIMENT": "true"})["OPTIONS"])
-        for extra in ({"DJANGO_DEBUG": "False"}, {"VERCEL": "1"}):
-            with self.subTest(extra=extra), self.assertRaises(ImproperlyConfigured):
-                load({"PLANB_PG_POOL_EXPERIMENT": "true", **extra})
+    def test_production_vercel_ci_and_public_urls_exclude_activation(self):
+        from config.postgresql_pool import CI_MARKERS
+        cases = [{"DJANGO_DEBUG": "False"}, {"VERCEL": "1"}, {"VERCEL": "false"},
+                 {"DJANGO_PUBLIC_URL": "https://planb.example"}]
+        cases += [{key: "true"} for key in CI_MARKERS]
+        cases += [{"CI": "false"}, {"VERCEL": ""}]
+        for extra in cases:
+            with self.subTest(extra=extra):
+                configured = runtime_settings(extra)
+                self.assertNotIn("pool", configured.DATABASES["default"]["OPTIONS"])
+                self.assertEqual(configured.DEBUG, extra.get("DJANGO_DEBUG") != "False")
+                self.assertEqual(configured.SESSION_COOKIE_SECURE, not configured.DEBUG)
+                with self.assertRaises(ImproperlyConfigured):
+                    runtime_settings({**extra, "PLANB_PG_POOL_EXPERIMENT": "true"})
+
+    def test_other_commands_and_wsgi_asgi_do_not_automatically_enable_pool(self):
+        arguments = [[str(MANAGE_PY), command] for command in
+                     ("check", "test", "migrate", "collectstatic", "shell")]
+        arguments += [["gunicorn", "config.wsgi:application"], ["uvicorn", "config.asgi:application"],
+                      ["gunicorn", "runserver"], ["pytest"], ["-c"]]
+        for argv in arguments:
+            with self.subTest(argv=argv):
+                self.assertNotIn("pool", runtime_settings(arguments=argv).DATABASES["default"]["OPTIONS"])
+
+    def test_local_bindings_and_autoreloader_are_supported(self):
+        for arguments in ([], ["8001"], ["127.0.0.1:8001"], ["localhost:8001"],
+                          ["[::1]:8001"], ["--ipv6"], ["--noreload", "--nothreading"]):
+            for extra in ({}, {"RUN_MAIN": "true"}):
+                with self.subTest(arguments=arguments, extra=extra):
+                    configured = runtime_settings(extra, [str(MANAGE_PY), "runserver", *arguments])
+                    self.assertIn("pool", configured.DATABASES["default"]["OPTIONS"])
+
+    def test_public_bindings_and_unknown_options_fail_closed(self):
+        for arguments in (["0.0.0.0:8000"], ["[::]:8000"], ["192.168.1.2:8000"],
+                          ["example.com:8000"], ["8000", "8001"], ["invalid"], ["70000"],
+                          ["--settings=config.settings"], ["--unknown-option"]):
+            with self.subTest(arguments=arguments):
+                configured = runtime_settings(arguments=[str(MANAGE_PY), "runserver", *arguments])
+                self.assertNotIn("pool", configured.DATABASES["default"]["OPTIONS"])
+
+    def test_test_settings_ignore_runserver_and_explicit_enable_flag(self):
+        from config import settings_test
+        with patch.dict(os.environ, {"PLANB_PG_POOL_EXPERIMENT": "true"}), \
+                patch("sys.argv", [str(MANAGE_PY), "runserver"]):
+            self.assertEqual(settings_test.DATABASES["default"]["ENGINE"], "django.db.backends.sqlite3")
+            self.assertNotIn("pool", settings_test.DATABASES["default"].get("OPTIONS", {}))
+
+    def test_manage_launcher_keeps_normal_runserver_arguments(self):
+        spec = importlib.util.spec_from_file_location("_pool_manage_fixture", MANAGE_PY)
+        launcher = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(launcher)
+        observed = []
+
+        def execute(arguments):
+            self.assertEqual(os.environ["DJANGO_SETTINGS_MODULE"], "config.settings")
+            observed.append(runtime_settings(arguments=arguments).DATABASES["default"])
+
+        with patch.dict(os.environ, {}, clear=True), patch("sys.argv", [str(MANAGE_PY), "runserver"]), \
+                patch("django.core.management.execute_from_command_line", side_effect=execute):
+            launcher.main()
+        self.assertIn("pool", observed[0]["OPTIONS"])
 
     def test_native_pool_is_lazy_bounded_and_keeps_connection_parameters(self):
         config = configure_pool_experiment(database_config(), enabled=True, local=True)
