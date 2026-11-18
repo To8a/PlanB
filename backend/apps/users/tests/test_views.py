@@ -281,6 +281,8 @@ class ProtectedRoutesTests(TestCase):
         self.assertNotContains(response, "Última actualización")
         self.assertContains(response, "Nombre de usuario")
         self.assertContains(response, 'method="post" action="/logout/"')
+        self.assertContains(response, 'href="/static/users/downloads/planb-early_release.apk"')
+        self.assertContains(response, 'download="planb-early_release.apk"')
 
     @patch("apps.users.services.session_service.current_user", return_value={"id": "example-id", "username": "<script>alert(1)</script>"})
     def test_profile_text_is_escaped(self, current):
