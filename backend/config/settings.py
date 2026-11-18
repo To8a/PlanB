@@ -10,6 +10,8 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 DEBUG = os.getenv("DJANGO_DEBUG", "False").strip().lower() in {"true", "1", "yes"}
 UNO_SUPABASE_ENABLED = os.getenv("UNO_SUPABASE_ENABLED", "false").strip().lower() in {"true", "1", "yes"}
 UNO_MULTIPLAYER_ENABLED = os.getenv("UNO_MULTIPLAYER_ENABLED", "false").strip().lower() in {"true", "1", "yes"}
+PARTNER_BURGER_URL = os.getenv("PARTNER_BURGER_URL", "https://cheesseefinder.web.app/#").strip()
+PARTNER_STREAMLY_URL = os.getenv("PARTNER_STREAMLY_URL", "https://leyla-siderostatic-similarly.ngrok-free.dev/").strip()
 ALLOWED_HOSTS = [host.strip() for host in os.getenv(
     "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1"
 ).split(",") if host.strip()]

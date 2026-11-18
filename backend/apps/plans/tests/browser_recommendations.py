@@ -223,7 +223,8 @@ window.addEventListener('load', async () => {
     const light = getComputedStyle(root).backgroundColor;
     document.documentElement.dataset.theme = 'dark';
     assert(getComputedStyle(root).backgroundColor !== light, 'Sección adapta light/dark');
-    assert(root.scrollWidth <= root.clientWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1, 'Sin scroll horizontal');
+    assert(root.scrollWidth <= root.clientWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1,
+      `Sin scroll horizontal (sección ${root.scrollWidth}/${root.clientWidth}, página ${document.documentElement.scrollWidth}/${innerWidth}; elementos: ${[...root.querySelectorAll('*')].filter(el => el.getBoundingClientRect().right > root.getBoundingClientRect().right + 1).slice(0, 8).map(el => `${el.className?.baseVal ?? el.className} ${Math.round(el.getBoundingClientRect().right-root.getBoundingClientRect().right)}`).join(', ')})`);
     const columns = getComputedStyle(root.querySelector('[data-suggestions-results]')).gridTemplateColumns.split(' ').length;
     assert(columns === (innerWidth > 1000 ? 2 : 1), 'Layout desktop/mobile coherente');
     const list = root.querySelector('[data-suggestions-list]');

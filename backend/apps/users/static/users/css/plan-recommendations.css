@@ -38,11 +38,8 @@
 .pb-suggestion-rank { position: relative; z-index: 1; display: grid; width: 28px; height: 28px; margin: 7px;
   border-radius: 50%; font-size: .85rem; font-weight: 800; background: var(--white); border: 1px solid var(--glass-border); }
 .pb-suggestion-rank { place-items: center; }
-.pb-suggestion-shape { position: absolute; width: 65px; height: 65px; border: 10px solid currentColor;
-  border-radius: 50%; opacity: .17; right: -28px; bottom: -18px; }
-.pb-suggestion-art--park .pb-suggestion-shape { border-radius: 50% 50% 10% 10%; transform: rotate(-25deg); }
-.pb-suggestion-art--shop .pb-suggestion-shape { border-radius: 5px; transform: rotate(25deg); }
-.pb-suggestion-art--restaurant .pb-suggestion-shape { border-width: 3px 10px; }
+.pb-suggestion-icon { position: absolute; right: 7px; bottom: 6px; width: 29px; height: 29px;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .pb-suggestion-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .pb-suggestion-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--muted); font-size: .7rem; }
 .pb-suggestion-category { font-weight: 700; }
@@ -88,6 +85,7 @@ html[data-theme='dark'] .pb-suggestion-pin { color: var(--canvas); }
   .pb-suggestions-heading { flex-direction: column; gap: 12px; }
   .pb-suggestion-card { padding: 13px; gap: 10px; }
   .pb-suggestion-art { width: 40px; height: 62px; }
+  .pb-suggestion-icon { width: 22px; height: 22px; right: 5px; bottom: 5px; }
   .pb-suggestion-rank { width: 24px; height: 24px; margin: 5px; }
   .pb-suggestion-meta { font-size: .66rem; }
   .pb-suggestion-actions { gap: 0 12px; }
