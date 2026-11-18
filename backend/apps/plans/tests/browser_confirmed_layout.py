@@ -168,8 +168,14 @@ window.addEventListener('load',async()=>{
     await wait(()=>window.layoutCalls.some(c=>c.path.endsWith('/gastos/')&&c.method==='POST'));
     await wait(()=>expense.querySelector('[data-expenses-status]').textContent.includes('cuentas están actualizadas'));
     assert(window.layoutCalls.find(c=>c.path.endsWith('/gastos/')&&c.method==='POST').fields.includes('csrfmiddlewaretoken'),'Gasto conserva formulario y CSRF');
+    control('sugerencias').scrollIntoView({block:'end', behavior:'instant'});
     control('sugerencias').click();
     await new Promise(r=>setTimeout(r,80));
+    await wait(()=>{
+      const title=root.querySelector('#pb-suggestions-title').getBoundingClientRect();
+      return title.top >= 0 && title.bottom < innerHeight;
+    });
+    assert(true,'Al abrir sugerencias su título queda visible');
     const map=root.querySelector('[data-suggestions-map]');
     const mapId=map._leaflet_id;
     assert(map.clientWidth>150&&map.clientHeight>=200,'Mapa oculto recupera dimensiones al abrir');

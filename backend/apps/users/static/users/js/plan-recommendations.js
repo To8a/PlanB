@@ -7,12 +7,32 @@
   const generations = new Map();
   const states = new Set(["not_generated", "ready", "failed", "pending", "not_confirmed"]);
   const categories = [
+    ["catering.fast_food", "Comida rápida", "fast-food"],
     ["catering.restaurant", "Restaurante", "restaurant"],
     ["catering.cafe", "Café", "cafe"],
+    ["catering.bar", "Bar", "bar"],
+    ["catering.pub", "Bar", "bar"],
+    ["adult.nightclub", "Discoteca", "nightclub"],
     ["leisure.park", "Parque", "park"],
     ["leisure.picnic", "Área de picnic", "park"],
     ["commercial.supermarket", "Supermercado", "shop"],
+    ["commercial.food_and_drink.bakery", "Panadería", "bakery"],
+    ["commercial.shopping_mall", "Centro comercial", "shopping"],
+    ["entertainment.cinema", "Cine", "cinema"],
   ];
+  const categoryPaths = {
+    restaurant: ["M4 3v6a3 3 0 0 0 6 0V3", "M7 3v18", "M17 21V3c-3 2-4 5-4 9h4"],
+    "fast-food": ["M3 12c0-4 4-7 9-7s9 3 9 7H3Z", "M3 16h18", "M4 19h16", "M8 9h.01M12 8h.01M16 9h.01"],
+    cafe: ["M4 7h13v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V7Z", "M17 9h1a3 3 0 0 1 0 6h-1", "M6 3v1M10 3v1M14 3v1", "M3 21h16"],
+    bar: ["M4 4h16l-7 8v8h3M11 20h2v-8L4 4Z"],
+    nightclub: ["M9 18V5l11-2v13", "M9 18a3 2 0 1 1-3-2c1.7 0 3 .9 3 2ZM20 16a3 2 0 1 1-3-2c1.7 0 3 .9 3 2Z"],
+    park: ["M12 21v-7", "M8 18H5l2-4H5l3-5H6l6-7 6 7h-2l3 5h-2l2 4h-3"],
+    shop: ["M3 4h2l2 11h10l3-8H6", "M9 20h.01M17 20h.01", "M9 20a1 1 0 1 0 0 .01M17 20a1 1 0 1 0 0 .01"],
+    bakery: ["M5 20h14l1-8a5 5 0 0 0-3-4 5 5 0 0 0-10 0 5 5 0 0 0-3 4l1 8Z", "M9 13v4M15 13v4"],
+    shopping: ["M4 8h16l-1 13H5L4 8Z", "M9 9V6a3 3 0 0 1 6 0v3"],
+    cinema: ["M4 5h16v14H4z", "M8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4", "m11 9 4 3-4 3V9Z"],
+    place: ["M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z", "M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"],
+  };
   const number = new Intl.NumberFormat("es-AR", {maximumFractionDigits: 1});
   const validCoordinates = item => typeof item.latitude === "number" && Number.isFinite(item.latitude)
     && Math.abs(item.latitude) <= 90 && typeof item.longitude === "number" && Number.isFinite(item.longitude)
@@ -50,6 +70,20 @@
     const values = Array.isArray(item.categories) ? item.categories : [];
     return categories.find(([key]) => values.some(value => typeof value === "string"
       && (value === key || value.startsWith(key + ".")))) || ["", "Lugar de interés", "place"];
+  }
+
+  function categoryIcon(kind) {
+    const namespace = "http://www.w3.org/2000/svg";
+    const icon = document.createElementNS(namespace, "svg");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("class", "pb-suggestion-icon");
+    icon.setAttribute("aria-hidden", "true");
+    for (const drawing of categoryPaths[kind] || categoryPaths.place) {
+      const path = document.createElementNS(namespace, "path");
+      path.setAttribute("d", drawing);
+      icon.append(path);
+    }
+    return icon;
   }
 
   function distance(value) {
@@ -149,8 +183,7 @@
       const [, label, kind] = category(item);
       const art = element("div", `pb-suggestion-art pb-suggestion-art--${kind}`);
       art.setAttribute("aria-hidden", "true");
-      // Slot visual estable: hoy media es null; sin búsquedas ni fotos inventadas.
-      art.append(element("span", "pb-suggestion-rank", String(index + 1)), element("span", "pb-suggestion-shape"));
+      art.append(element("span", "pb-suggestion-rank", String(index + 1)), categoryIcon(kind));
       const body = element("div", "pb-suggestion-body");
       const meta = element("div", "pb-suggestion-meta");
       meta.append(element("span", "pb-suggestion-category", label));

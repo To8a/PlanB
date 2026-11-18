@@ -1,4 +1,4 @@
-{% load l10n %}
+{% load l10n static %}
 <div class="pb-confirmed-layout" data-confirmed-layout>
   <header class="pb-confirmed-heading">
     <div>
@@ -22,6 +22,11 @@
                 aria-controls="plan-details-drawer" aria-expanded="false">Ver proceso de decisión</button>
       </section>
     {% endif %}
+    <section class="pb-plan-partners" data-partner-apps data-url="{% url 'plans:partner_apps' plan.id %}" data-burger-logo="{% static 'users/img/chesseefinder.jpeg' %}" data-movies-logo="{% static 'users/img/streamly.jpeg' %}" aria-labelledby="partner-apps-title" hidden>
+      <form hidden>{% csrf_token %}</form>
+      <div class="pb-plan-partners__heading"><span>PARA ESTE PLAN</span><h2 id="partner-apps-title">Una idea para compartir</h2></div>
+      <div class="pb-plan-partners__list" data-partner-list></div>
+    </section>
     <section class="pb-meeting-tools" aria-labelledby="meeting-tools-title">
       <div class="pb-meeting-tools-heading"><h2 id="meeting-tools-title">Organizar el encuentro</h2><p>Elegí qué necesitás consultar.</p></div>
       <div class="pb-tool-selectors" aria-label="Herramientas del encuentro">

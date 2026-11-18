@@ -1,0 +1,16 @@
+﻿.pb-plan-partners { margin: 20px 0; }
+.pb-plan-partners[hidden] { display: none; }
+.pb-plan-partners__heading > span { color: #67866c; font-size: .7rem; font-weight: 800; letter-spacing: .1em; }
+.pb-plan-partners__heading h2 { margin: 5px 0 12px; color: var(--text); font-size: 1.2rem; }
+.pb-plan-partners__list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.pb-plan-partner { display: flex; align-items: flex-start; gap: 14px; padding: 16px; border: 1px solid #cadcc6; border-radius: 16px; color: #1f4d3a; background: #f0f6e9; text-decoration: none; }
+.pb-plan-partner:hover { border-color: #6b956e; }
+.pb-plan-partner:focus-visible { outline: 3px solid #8a68db; outline-offset: 3px; }
+.pb-plan-partner__logo { width: 110px; height: 76px; flex: none; object-fit: contain; border-radius: 10px; }
+.pb-plan-partner__body { display: grid; gap: 5px; }
+.pb-plan-partner__body small { color: #587261; line-height: 1.4; }
+.pb-plan-partner__body > span { font-size: .82rem; font-weight: 800; }
+html[data-theme='dark'] .pb-plan-partners__heading > span { color: #b9d1b7; }
+html[data-theme='dark'] .pb-plan-partner { color: #faf7f0; background: #2b4736; border-color: #4c6a51; }
+html[data-theme='dark'] .pb-plan-partner__body small { color: #c3d4c3; }
+@media (max-width: 420px) { .pb-plan-partner__logo { width: 78px; height: 64px; } }
