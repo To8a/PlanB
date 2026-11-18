@@ -498,15 +498,15 @@ def proposal_election_method(request, plan_id):
     except InvalidProposal:
         messages.error(request, "El método de elección no es válido.")
     except ElectionFlexibilityUnavailable:
-        messages.error(request, "Para cambiar el método después de tener resultados, aplicá 202610100002_flexible_proposal_elections.sql en Supabase.")
+        messages.error(request, "Por ahora no se puede cambiar el método después de registrar resultados. Probá más tarde.")
         return redirect(f"{reverse('plans:detail', args=[plan_id])}#proposal-election")
     except ElectionSchemaUnavailable:
         if method == "ideal":
-            messages.info(request, "Se abrió el cálculo ideal; aplicá la migración para guardar el método.")
+            messages.info(request, "Podés consultar el cálculo ideal, pero por ahora no se pudo guardar como método de elección.")
             return redirect(
                 f"{reverse('plans:detail', args=[plan_id])}?ideal=1#proposal-ideal-card",
             )
-        messages.error(request, "Para usar Votación o Combate, aplicá primero la migración de métodos de elección en Supabase.")
+        messages.error(request, "Por ahora no se puede elegir Votación o Combate. Probá más tarde.")
         return redirect(f"{reverse('plans:detail', args=[plan_id])}#proposal-election")
     except ProposalUnavailable:
         if method == "ideal":
@@ -545,7 +545,7 @@ def proposal_combat_game(request, plan_id):
     except InvalidProposal:
         messages.error(request, "El juego de combate no es válido.")
     except ElectionSchemaUnavailable:
-        messages.error(request, "Para elegir el juego de combate, aplicá 202611130001_plan_combat_game.sql en Supabase.")
+        messages.error(request, "Por ahora no se puede cambiar el juego. Probá más tarde.")
     except ProposalUnavailable:
         return _unavailable(request)
     else:
@@ -566,9 +566,9 @@ def proposal_vote(request, plan_id, proposal_id):
             plan_id=plan_id, proposal_id=proposal_id,
         )
     except ElectionFlexibilityUnavailable:
-        messages.error(request, "Para cambiar un voto existente, aplicá 202610100002_flexible_proposal_elections.sql en Supabase.")
+        messages.error(request, "Por ahora no se puede cambiar tu voto. Probá más tarde.")
     except ElectionSchemaUnavailable:
-        messages.error(request, "La votación requiere aplicar la migración de métodos de elección en Supabase.")
+        messages.error(request, "La votación no está disponible en este momento. Probá más tarde.")
     except (InvalidProposal, ProposalNotFound):
         messages.error(request, "No se pudo registrar ese voto.")
     except ProposalUnavailable:
@@ -590,9 +590,9 @@ def proposal_vote_remove(request, plan_id):
             session_service.get_access_token(request), plan_id=plan_id,
         )
     except ElectionFlexibilityUnavailable:
-        messages.error(request, "Para eliminar un voto existente, aplicá 202610100002_flexible_proposal_elections.sql en Supabase.")
+        messages.error(request, "Por ahora no se puede eliminar tu voto. Probá más tarde.")
     except ElectionSchemaUnavailable:
-        messages.error(request, "La votación requiere aplicar la migración de métodos de elección en Supabase.")
+        messages.error(request, "La votación no está disponible en este momento. Probá más tarde.")
     except InvalidProposal:
         messages.error(request, "No se pudo eliminar el voto.")
     except ProposalUnavailable:
@@ -629,7 +629,7 @@ def proposal_score(request, plan_id, proposal_id):
             game=game,
         )
     except ElectionSchemaUnavailable:
-        messages.error(request, "Combate requiere aplicar las migraciones de métodos de elección y juegos en Supabase.")
+        messages.error(request, "Por ahora no se puede guardar el puntaje. Probá más tarde.")
     except (InvalidProposal, ProposalNotFound):
         messages.error(request, "No se pudo guardar ese puntaje.")
     except ProposalUnavailable:

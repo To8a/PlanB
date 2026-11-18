@@ -1,9 +1,10 @@
 from django.urls import path
 
-from . import expense_views, recommendation_views, uno_duel_views, uno_views, views
+from . import expense_views, partner_views, recommendation_views, uno_duel_views, uno_views, views
 
 app_name = "plans"
 urlpatterns = [
+    path("<uuid:plan_id>/apps-sugeridas/", partner_views.partner_apps, name="partner_apps"),
     path("<uuid:plan_id>/recomendaciones/reintentar/", recommendation_views.retry_recommendations, name="retry_recommendations"),
     path("<uuid:plan_id>/recomendaciones/", recommendation_views.recommendations, name="recommendations"),
     path("<uuid:plan_id>/gastos/notificar/", expense_views.notify_debt, name="notify_expense_debt"),

@@ -20,10 +20,11 @@
     reveals.get(element)?.cancel();
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !element.animate) return;
     const height = element.getBoundingClientRect().height;
-    reveals.set(element, element.animate([
+    const animation = element.animate([
       {height: `${startHeight}px`, opacity: .4, overflow: "clip"},
       {height: `${height}px`, opacity: 1, overflow: "clip"}
-    ], {duration: 280, easing: "cubic-bezier(.22, 1, .36, 1)"}));
+    ], {duration: 280, easing: "cubic-bezier(.22, 1, .36, 1)"});
+    reveals.set(element, animation);
   }
   root.addEventListener("toggle", event => {
     const details = event.target;
@@ -57,7 +58,21 @@
     if (name === "clima") root.querySelector("[data-weather-compare]")?.setAttribute("open", "");
     if (focus) controls.find(button => button.dataset.tool === name)?.focus({preventScroll: true});
   }
-  controls.forEach(button => button.addEventListener("click", () => selectTool(active === button.dataset.tool ? null : button.dataset.tool)));
+  controls.forEach(button => button.addEventListener("click", () => {
+    const name = active === button.dataset.tool ? null : button.dataset.tool;
+    selectTool(name);
+    if (name === "sugerencias") {
+      const panel = panels.find(item => item.dataset.toolPanel === name);
+      const scrollToContent = () => {
+        if (!panel || panel.hidden) return;
+        const heading = panel.querySelector("#pb-suggestions-title") || panel;
+        heading.scrollIntoView({block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"});
+      };
+      const animation = panel && reveals.get(panel);
+      if (animation) animation.finished.then(scrollToContent).catch(() => {});
+      else requestAnimationFrame(scrollToContent);
+    }
+  }));
   root.querySelectorAll("[data-close-tool]").forEach(button => button.addEventListener("click", () => {
     const previous = active;
     selectTool(null);

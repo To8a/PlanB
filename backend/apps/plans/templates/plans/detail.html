@@ -17,16 +17,18 @@
   <link rel="stylesheet" href="{% static 'users/css/plan-detail-social.css' %}?v=31_14">
   <link rel="stylesheet" href="{% static 'users/css/plan-expenses.css' %}?v=4">
   {% if show_recommendations %}
-  <link rel="stylesheet" href="{% static 'users/css/plan-recommendations.css' %}?v=2">
+  <link rel="stylesheet" href="{% static 'users/css/plan-recommendations.css' %}?v=4">
   {% endif %}
   {% if show_recommendations %}
-  <link rel="stylesheet" href="{% static 'users/css/plan-confirmed-workspace.css' %}?v=11">
+  <link rel="stylesheet" href="{% static 'users/css/plan-confirmed-workspace.css' %}?v=14">
+  <link rel="stylesheet" href="{% static 'users/css/partner-plan.css' %}?v=2">
   {% endif %}
   <link rel="stylesheet" href="{% static 'users/css/plan-organizing-compact.css' %}?v=13">
 {% endblock %}
 {% block extra_js %}
   {% if show_recommendations %}
-  <script src="{% static 'users/js/plan-confirmed-workspace.js' %}?v=3" defer></script>
+  <script src="{% static 'users/js/plan-confirmed-workspace.js' %}?v=5" defer></script>
+  <script src="{% static 'users/js/partner-plan.js' %}?v=2" defer></script>
   {% endif %}
   <script src="{% static 'users/js/plan-expenses.js' %}?v=3" defer></script>
   <script src="{% static 'users/js/plan-weather-planner.js' %}?v=1" defer></script>
@@ -35,7 +37,7 @@
   <script src="{% static 'leaflet.js' %}" defer></script>
   {% endif %}
   {% if show_recommendations %}
-  <script src="{% static 'users/js/plan-recommendations.js' %}?v=2" defer></script>
+  <script src="{% static 'users/js/plan-recommendations.js' %}?v=3" defer></script>
   {% endif %}
   {% if proposals %}
   <script src="{% static 'users/js/proposal-weather.js' %}?v=1" defer></script>
