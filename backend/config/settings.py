@@ -1,7 +1,9 @@
 """Configuración de ejecución. Los tests utilizan settings_test por separado."""
 import os
+import sys
 from dotenv import load_dotenv
 from .settings_base import *  # noqa: F403
+from .postgresql_pool import configure_pool_experiment, local_runserver
 
 load_dotenv(BASE_DIR.parent / ".env")
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
@@ -24,6 +26,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "").strip() or GEMINI_MODEL
 DATABASES = {"default": {
     "ENGINE": "django.db.backends.postgresql",
+    "CONN_MAX_AGE": 0,
     "NAME": os.environ["DB_NAME"], "USER": os.environ["DB_USER"],
     "PASSWORD": os.environ["DB_PASSWORD"], "HOST": os.environ["DB_HOST"],
     "PORT": os.getenv("DB_PORT", "5432"),
@@ -32,6 +35,16 @@ DATABASES = {"default": {
         "options": "-c search_path=django_internal",
     },
 }}
+_local_runserver = local_runserver(
+    debug=DEBUG, public_url=DJANGO_PUBLIC_URL, manage_py=BASE_DIR / "manage.py",
+    argv=sys.argv, environ=os.environ,
+)
+_pool_override = os.getenv("PLANB_PG_POOL_EXPERIMENT")
+DATABASES["default"] = configure_pool_experiment(
+    DATABASES["default"],
+    enabled=_local_runserver if _pool_override is None else _pool_override.strip().lower() in {"true", "1", "yes"},
+    local=_local_runserver,
+)
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_SSL_REDIRECT = not DEBUG
